@@ -1,0 +1,61 @@
+# --- Operation ---
+# - import: VoID import into DSS
+# - export: export an existing DSS schema to VoID
+operation: "export"
+
+# --- Input Source ---
+# Input source type:
+# - void-generator
+# - sparql-catalogue
+source_type: "void-generator"
+
+# SPARQL endpoint URL used for schema import
+sparql_endpoint: "http://localhost:3030/dataset/query"
+
+# Required only when source_type is "sparql-catalogue".
+service_name: "https://catalogue.ai.wu.ac.at/example_service"
+
+# --- Schema ---
+# The name used for the DB schema.
+# This schema must already exist as a clone of the 'empty' template,
+# or set mode to 'auto' to attempt creation.
+db_schema: "example_void_schema"
+
+# Display name shown in the ViziQuer UI
+display_name: "Example VoID Schema"
+
+# Schema description (optional)
+description: "Schema imported from VoID metadata"
+
+# Import mode: "auto" or "manual"
+# - auto:  will attempt to create the DB schema from 'empty' template
+# - manual: assumes the DB schema already exists
+mode: "auto"
+
+# Relationship evidence source for cp_rels/cpc_rels:
+# - partitions: only nested classPartition/propertyPartition data
+# - linksets: only void:Linkset data; also skips datatype import because
+#             datatype info is only in partitions
+# - both: current default behavior; partitions first, then linkset additional info
+relationship_source_mode: "both"
+
+# Optional class classification property IRI.
+# will be written to classes.classification_property and
+# classes.classification_property_id for all classes.
+classification_property: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+
+# --- Database (DSS PostgreSQL) ---
+# Connection to the Data Shape Server database.
+database:
+  host: "localhost"
+  port: 5433
+  dbname: "dbname"
+  user: "user"
+  password: "password"
+  # Schema used for the schemata/endpoints registry
+  registry_schema: "public"
+
+# --- Export ---
+export:
+  output_path: "output/exported_schema.ttl"
+  rdf_format: "turtle"
