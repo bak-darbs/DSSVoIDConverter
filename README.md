@@ -56,6 +56,7 @@ Minimal import example:
 ```yaml
 operation: "import"
 source_type: "void-generator"
+source_input: "endpoint"
 sparql_endpoint: "http://localhost:3030/dataset/sparql"
 
 db_schema: "example_void_schema"
@@ -80,6 +81,7 @@ Catalogue import example:
 ```yaml
 operation: "import"
 source_type: "sparql-catalogue"
+source_input: "sparql"
 sparql_endpoint: "https://sparql-catalogue.ai.wu.ac.at/api/qlever"
 service_name: "https://catalogue.ai.wu.ac.at/example_service"
 
@@ -95,6 +97,33 @@ database:
   password: "password"
   registry_schema: "public"
 ```
+
+RDF file import for `void-generator` metadata:
+
+```yaml
+operation: "import"
+source_type: "void-generator"
+source_input: "file"
+rdf_file: "path/void_file.ttl"
+rdf_format: "turtle"
+
+db_schema: "example_void_schema"
+display_name: "Example VoID Schema"
+mode: "auto"
+
+relationship_source_mode: "both"
+classification_property: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+
+database:
+  host: "localhost"
+  port: 5433
+  dbname: "rdfmeta"
+  user: "rdfmeta"
+  password: "password"
+  registry_schema: "public"
+```
+RDF file import uses `rdflib.Graph`, so the metadata file is loaded into memory
+before extraction. This mode is intended for VoID/catalogue metadata only files, not full datasets.
 
 Export example:
 

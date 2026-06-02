@@ -6,6 +6,7 @@ import yaml
 
 _RELATIONSHIP_SOURCE_MODES = {"partitions", "linksets", "both"}
 _SOURCE_TYPES = {"void-generator", "sparql-catalogue"}
+_SOURCE_INPUTS = {"endpoint", "file"}
 _OPERATIONS = {"import", "export"}
 
 
@@ -44,13 +45,22 @@ def get_operation(cfg: Dict[str, Any]) -> str:
 
 
 def get_source_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """Return the SPARQL source configuration."""
-    sparql_endpoint = cfg.get("sparql_endpoint")
-    if not sparql_endpoint:
+    """Return the import source configuration."""
+    source_input = get_source_input(cfg)
+    sparql_endpoint = cfg.get("sparql_endpoint", "")
+    rdf_file = cfg.get("rdf_file", "")
+
+    if source_input == "endpoint" and not sparql_endpoint:
         raise KeyError("Missing 'sparql_endpoint' in config.")
+    if source_input == "file" and not rdf_file:
+        raise KeyError("Missing 'rdf_file' in config when source_input is 'file'.")
+
     source_type = get_source_type(cfg)
     return {
+        "source_input": source_input,
         "sparql_endpoint": sparql_endpoint,
+        "rdf_file": rdf_file,
+        "rdf_format": cfg.get("rdf_format", "turtle"),
         "source_type": source_type,
         "service_name": get_catalogue_service_name(cfg),
     }
@@ -103,6 +113,17 @@ def get_source_type(cfg: Dict[str, Any]) -> str:
             f"Invalid source_type: {source_type!r}. Expected one of: {allowed}."
         )
     return source_type
+
+
+def get_source_input(cfg: Dict[str, Any]) -> str:
+    """Return and validate the configured input transport."""
+    source_input = cfg.get("source_input", "sparql")
+    if source_input not in _SOURCE_INPUTS:
+        allowed = ", ".join(sorted(_SOURCE_INPUTS))
+        raise ValueError(
+            f"Invalid source_input: {source_input!r}. Expected one of: {allowed}."
+        )
+    return source_input
 
 
 def get_catalogue_service_name(cfg: Dict[str, Any]) -> str:
@@ -162,8 +183,9 @@ def build_env(cfg: Dict[str, Any]) -> Dict[str, Any]:
         "classification_property": sc["classification_property"],
         "relationship_source_mode": get_relationship_source_mode(cfg),
         "source_type": source["source_type"],
+        "source_input": source["source_input"],
         "service_name": source["service_name"],
-        "sparql_url": ep["sparql_url"] or source["sparql_endpoint"],
+        "sparql_url": ep["sparql_url"] or source.get("sparql_endpoint", ""),
         "named_graph": ep["named_graph"],
         "public_url": ep["public_url"],
         "endpoint_type": ep["endpoint_type"],

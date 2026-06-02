@@ -13,6 +13,7 @@ from src.config import (
 )
 from src.db.dss_connector import DSSPostgresConnector
 from src.importer.dss_import_finalizer import DSSImportFinalizer
+from src.importer.rdf_file_client import RdfFileQueryClient
 from src.importer.sparql_client import query_sparql_json
 from src.utils.top_level_count_resolver import resolve_top_level_partition_counts
 from src.importer.void_generator_queries import (
@@ -55,13 +56,12 @@ class VoidGeneratorImporter:
     def db_config(self) -> Dict[str, Any]:
         return get_db_config(self.cfg)
 
+    def query_rows(self, query: str, timeout: int = 60) -> List[Dict[str, Any]]:
+        return query_sparql_json(self.selection.sparql_endpoint, query, timeout=timeout)
+
     def query_service_metadata(self, timeout: int = 60) -> Dict[str, Optional[str]]:
         """Read the direct VoID service IRI and declared endpoint URL."""
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint,
-            SERVICE_METADATA_SELECT_QUERY,
-            timeout=timeout,
-        )
+        rows = self.query_rows(SERVICE_METADATA_SELECT_QUERY, timeout=timeout)
         if not rows:
             return {
                 "service_iri": None,
@@ -76,11 +76,7 @@ class VoidGeneratorImporter:
 
     def query_classes(self, timeout: int = 60) -> List[Tuple[str, int | None]]:
         """Read top-level classes from sd:Graph-anchored VoID metadata."""
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint,
-            CLASS_SELECT_QUERY,
-            timeout=timeout,
-        )
+        rows = self.query_rows(CLASS_SELECT_QUERY, timeout=timeout)
         return resolve_top_level_partition_counts(
             rows,
             iri_key="class",
@@ -90,11 +86,7 @@ class VoidGeneratorImporter:
 
     def query_properties(self, timeout: int = 60) -> List[Tuple[str, int | None]]:
         """Read top-level properties from sd:Graph-anchored VoID metadata."""
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint,
-            PROPERTY_SELECT_QUERY,
-            timeout=timeout,
-        )
+        rows = self.query_rows(PROPERTY_SELECT_QUERY, timeout=timeout)
         return resolve_top_level_partition_counts(
             rows,
             iri_key="prop",
@@ -104,11 +96,7 @@ class VoidGeneratorImporter:
 
     def query_partition_cp_rels(self, timeout: int = 60) -> List[Dict[str, Any]]:
         """Read nested class-property-class data from VoID partitions."""
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint,
-            PARTITION_CP_RELS_SELECT_QUERY,
-            timeout=timeout,
-        )
+        rows = self.query_rows(PARTITION_CP_RELS_SELECT_QUERY, timeout=timeout)
 
         grouped: Dict[tuple, Dict[str, Any]] = {}
         for row in rows:
@@ -172,16 +160,12 @@ class VoidGeneratorImporter:
             return None
         vocab_partition_uri = ot_uri.replace("#!", "#vocabulary!", 1)
         query = build_unresolved_ot_fallback_query(vocab_partition_uri)
-        rows = query_sparql_json(self.selection.sparql_endpoint, query, timeout=timeout)
+        rows = self.query_rows(query, timeout=timeout)
         return rows[0].get("fallbackClass") if rows else None
 
     def query_linkset_cp_rels(self, timeout: int = 60) -> List[Dict[str, Any]]:
         """Read void:Linkset relationships from direct VoID metadata."""
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint,
-            LINKSETS_SELECT_QUERY,
-            timeout=timeout,
-        )
+        rows = self.query_rows(LINKSETS_SELECT_QUERY, timeout=timeout)
 
         fallback_class: Dict[str, Optional[str]] = {}
         unresolved_ots = {
@@ -219,11 +203,7 @@ class VoidGeneratorImporter:
 
     def query_pd_datatypes(self, timeout: int = 60) -> List[tuple]:
         """Read property-level datatype partitions."""
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint,
-            PD_RELS_DATATYPE_QUERY,
-            timeout=timeout,
-        )
+        rows = self.query_rows(PD_RELS_DATATYPE_QUERY, timeout=timeout)
 
         grouped: Dict[tuple, Optional[int]] = {}
         for row in rows:
@@ -241,11 +221,7 @@ class VoidGeneratorImporter:
 
     def query_cpd_datatypes(self, timeout: int = 60) -> List[tuple]:
         """Read class-property-level datatype partitions."""
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint,
-            CPD_RELS_DATATYPE_QUERY,
-            timeout=timeout,
-        )
+        rows = self.query_rows(CPD_RELS_DATATYPE_QUERY, timeout=timeout)
 
         grouped: Dict[tuple, Dict[str, Any]] = {}
         for row in rows:
@@ -466,3 +442,18 @@ class VoidGeneratorImporter:
         self.finalizer.run_post_processing()
         self.finalizer.persist_parameters()
         self.finalizer.register_schema()
+
+
+class RdfFileVoidGeneratorImporter(VoidGeneratorImporter):
+    """Direct VoID import pipeline backed by a local RDF file."""
+
+    def __init__(self, cfg: Dict[str, Any]) -> None:
+        super().__init__(cfg)
+        source = get_source_config(cfg)
+        self.rdf_client = RdfFileQueryClient(
+            source["rdf_file"],
+            rdf_format=source["rdf_format"],
+        )
+
+    def query_rows(self, query: str, timeout: int = 60) -> List[Dict[str, Any]]:
+        return self.rdf_client.query_rows(query, timeout=timeout)

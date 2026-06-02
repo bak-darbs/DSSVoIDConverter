@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Tuple
 from src.config import get_source_config, get_schema_config
 from src.db.dss_connector import DSSPostgresConnector
 from src.importer.dss_import_finalizer import DSSImportFinalizer
+from src.importer.rdf_file_client import RdfFileQueryClient
 from src.importer.sparql_catalogue_queries import (
     CATALOGUE_CLASS_ANNOTATIONS_SELECT_QUERY,
     CATALOGUE_CLASS_SELECT_QUERY,
@@ -80,14 +81,15 @@ class SPARQLCatalogueImporter:
         self.auto_create = schema.get("mode", "manual") == "auto"
         self.finalizer = DSSImportFinalizer(cfg, self.query_service_metadata)
 
+    def query_rows(self, query: str, timeout: int = 60) -> List[Dict[str, Any]]:
+        return query_sparql_json(self.selection.sparql_endpoint, query, timeout=timeout)
+
     def query_classes(self, timeout: int = 60) -> List[Tuple[str, int | None]]:
         """Read service top-level classes from catalogue metadata."""
         query = for_service(
             CATALOGUE_CLASS_SELECT_QUERY, self.selection.service_name
             )
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint, query, timeout=timeout
-        )
+        rows = self.query_rows(query, timeout=timeout)
         return resolve_top_level_partition_counts(
             rows,
             iri_key="class",
@@ -101,9 +103,7 @@ class SPARQLCatalogueImporter:
         query = for_service(
             CATALOGUE_PROPERTY_SELECT_QUERY, self.selection.service_name
         )
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint, query, timeout=timeout
-        )
+        rows = self.query_rows(query, timeout=timeout)
         return resolve_top_level_partition_counts(
             rows,
             iri_key="property",
@@ -117,9 +117,7 @@ class SPARQLCatalogueImporter:
         query = for_service(
             CATALOGUE_LINKSET_SELECT_QUERY, self.selection.service_name
             )
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint, query, timeout=timeout
-        )
+        rows = self.query_rows(query, timeout=timeout)
 
         result: List[Dict[str, Any]] = []
         for row in rows:
@@ -147,9 +145,7 @@ class SPARQLCatalogueImporter:
         query = for_service(
             CATALOGUE_SERVICE_METADATA_SELECT_QUERY, self.selection.service_name
         )
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint, query, timeout=timeout
-        )
+        rows = self.query_rows(query, timeout=timeout)
         if not rows:
             return {
                 "service_iri": self.selection.service_name,
@@ -167,9 +163,7 @@ class SPARQLCatalogueImporter:
         query = for_service(
             CATALOGUE_CLASS_ANNOTATIONS_SELECT_QUERY, self.selection.service_name
         )
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint, query, timeout=timeout
-        )
+        rows = self.query_rows(query, timeout=timeout)
         return _group_annotation_rows(rows, entity_key="class")
 
     def query_property_annotations(self, timeout: int = 60) -> List[Dict[str, Any]]:
@@ -177,9 +171,7 @@ class SPARQLCatalogueImporter:
         query = for_service(
             CATALOGUE_PROPERTY_ANNOTATIONS_SELECT_QUERY, self.selection.service_name
         )
-        rows = query_sparql_json(
-            self.selection.sparql_endpoint, query, timeout=timeout
-        )
+        rows = self.query_rows(query, timeout=timeout)
         return _group_annotation_rows(rows, entity_key="property")
 
     def import_classes(self) -> int:
@@ -291,3 +283,18 @@ class SPARQLCatalogueImporter:
         self.finalizer.run_post_processing()
         self.finalizer.persist_parameters()
         self.finalizer.register_schema()
+
+
+class RdfFileSPARQLCatalogueImporter(SPARQLCatalogueImporter):
+    """SPARQL catalogue import pipeline backed by a local RDF file."""
+
+    def __init__(self, cfg: Dict[str, Any]) -> None:
+        super().__init__(cfg)
+        source = get_source_config(cfg)
+        self.rdf_client = RdfFileQueryClient(
+            source["rdf_file"],
+            rdf_format=source["rdf_format"],
+        )
+
+    def query_rows(self, query: str, timeout: int = 60) -> List[Dict[str, Any]]:
+        return self.rdf_client.query_rows(query, timeout=timeout)

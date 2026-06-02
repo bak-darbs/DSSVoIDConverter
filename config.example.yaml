@@ -1,7 +1,9 @@
 # --- Operation ---
 # - import: VoID import into DSS
 # - export: export an existing DSS schema to VoID
-operation: "export"
+operation: "import"
+
+#=================IMPORT CONFIGURATION=================
 
 # --- Input Source ---
 # Input source type:
@@ -9,23 +11,34 @@ operation: "export"
 # - sparql-catalogue
 source_type: "void-generator"
 
-# SPARQL endpoint URL used for schema import
+# Input:
+# - endpoint: query a SPARQL endpoint with VoID schema definition
+# - file: loads schema from an RDF file. (loads the entire graph into memory, not recommended for large files)
+source_input: "endpoint"
+
+# RDF file path and format, required if source_input is "file"
+rdf_file: "output/void-muzieweb.ttl"
+rdf_format: "turtle"
+
+
+# SPARQL endpoint which contains VoID schema definition, required when source_input is "endpoint".
 sparql_endpoint: "http://localhost:3030/dataset/query"
 
-# Required only when source_type is "sparql-catalogue".
+# Required only when source_type is "sparql-catalogue". The name of the service in the SPARQL catalogue(https://sparql-catalogue.ai.wu.ac.at/catalogue). 
 service_name: "https://catalogue.ai.wu.ac.at/example_service"
 
 # --- Schema ---
 # The name used for the DB schema.
 # This schema must already exist as a clone of the 'empty' template,
 # or set mode to 'auto' to attempt creation.
-db_schema: "example_void_schema"
+# For Export operation, this is the name of the existing DB schema to export.
+db_schema: "muziekweb_from_file"
 
 # Display name shown in the ViziQuer UI
-display_name: "Example VoID Schema"
+display_name: "Muziekweb from File"
 
 # Schema description (optional)
-description: "Schema imported from VoID metadata"
+description: "Schema imported from VoID file"
 
 # Import mode: "auto" or "manual"
 # - auto:  will attempt to create the DB schema from 'empty' template
@@ -44,7 +57,7 @@ relationship_source_mode: "both"
 # classes.classification_property_id for all classes.
 classification_property: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 
-# --- Database (DSS PostgreSQL) ---
+# ==================DATABASE CONFIGURATION=================
 # Connection to the Data Shape Server database.
 database:
   host: "localhost"
@@ -55,7 +68,8 @@ database:
   # Schema used for the schemata/endpoints registry
   registry_schema: "public"
 
-# --- Export ---
+# =================EXPORT CONFIGURATION=================
+# Schema to export is configured in db_schema above
 export:
   output_path: "output/exported_schema.ttl"
   rdf_format: "turtle"
