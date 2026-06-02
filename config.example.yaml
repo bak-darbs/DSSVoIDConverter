@@ -17,7 +17,7 @@ source_type: "void-generator"
 source_input: "endpoint"
 
 # RDF file path and format, required if source_input is "file"
-rdf_file: "output/void-muzieweb.ttl"
+rdf_file: "path/void-file.ttl"
 rdf_format: "turtle"
 
 
@@ -32,13 +32,13 @@ service_name: "https://catalogue.ai.wu.ac.at/example_service"
 # This schema must already exist as a clone of the 'empty' template,
 # or set mode to 'auto' to attempt creation.
 # For Export operation, this is the name of the existing DB schema to export.
-db_schema: "muziekweb_from_file"
+db_schema: "example_schema"
 
 # Display name shown in the ViziQuer UI
-display_name: "Muziekweb from File"
+display_name: "Example Schema"
 
 # Schema description (optional)
-description: "Schema imported from VoID file"
+description: "Example schema imported from VoID"
 
 # Import mode: "auto" or "manual"
 # - auto:  will attempt to create the DB schema from 'empty' template
